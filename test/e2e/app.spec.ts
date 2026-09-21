@@ -62,6 +62,60 @@ test.describe('glass-plate homography audit', () => {
     expect(external).toEqual([]);
   });
 
+  test('orientation-flipping batch: zero-outlier success with canonical swap matrix', async ({ page }) => {
+    // All eight correspondences are exact under H = [[1,0,0],[0,0,1],[0,1,0]]
+    // ((x,y) -> (x/y, 1/y)); the y = -1 row is mirrored through the line at
+    // infinity, so no source frame shares an affine-orientation pattern with
+    // its target frame. The audit must still find the unique optimum.
+    const batch = [
+      'P1, 0, 1, 0, 1',
+      'P2, 1, 1, 1, 1',
+      'P3, 2, 1, 2, 1',
+      'P4, 3, 1, 3, 1',
+      'N1, 10, -1, -10, -1',
+      'N2, 11, -1, -11, -1',
+      'N3, 12, -1, -12, -1',
+      'N4, 13, -1, -13, -1',
+    ].join('\n');
+    const ids = ['P1', 'P2', 'P3', 'P4', 'N1', 'N2', 'N3', 'N4'];
+
+    await page.goto('/');
+    await page.getByTestId('input-points').fill(batch);
+    await page.getByTestId('input-limit').fill('0');
+    await page.getByTestId('btn-run').click();
+    await expect(page.getByTestId('notice-success')).toBeVisible();
+
+    // Zero outliers: every identifier retained, none removed, one optimum.
+    await expect(page.getByTestId('inlier-count')).toHaveText('8');
+    await expect(page.getByTestId('outlier-count')).toHaveText('0');
+    await expect(page.getByTestId('distinct-count')).toHaveText('1');
+    await expect(page.getByTestId('frames-count')).toHaveText('36');
+
+    // Canonical nine-integer matrix, row-major: 1,0,0 / 0,0,1 / 0,1,0.
+    const expected = ['1', '0', '0', '0', '0', '1', '0', '1', '0'];
+    for (let i = 0; i < 9; i++) {
+      const cell = page.locator(`[data-testid=matrix] [data-pos="${Math.floor(i / 3)}${i % 3}"]`);
+      expect((await cell.textContent())?.replace(/,/g, '')).toBe(expected[i]);
+    }
+
+    // Partition: all eight ids retained, removal list empty.
+    const inChips = await page.getByTestId('inlier-list').locator('.chip').allTextContents();
+    expect(inChips).toEqual(ids);
+    await expect(page.getByTestId('outlier-list').locator('.chip')).toHaveCount(0);
+    await expect(page.getByTestId('outlier-list')).toContainText('无');
+
+    // Per-point table: every row is an exact coincidence.
+    for (const id of ids) {
+      await expect(page.getByTestId(`verdict-${id}`)).toHaveText('保留·精确重合');
+    }
+
+    // SVG overlay: eight coincident points, no outlier evidence at all.
+    await expect(page.locator('svg .mk-inlier')).toHaveCount(8);
+    await expect(page.locator('svg .mk-outlier')).toHaveCount(0);
+    await expect(page.locator('svg .ln-residual')).toHaveCount(0);
+    await expect(page.locator('svg .mk-proj')).toHaveCount(0);
+  });
+
   test('ceiling exceeded: failure reason shown, input retained, old figure cleared', async ({ page }) => {
     await page.goto('/');
     await runSampleAudit(page);

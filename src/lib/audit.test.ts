@@ -143,6 +143,36 @@ describe('runAudit exact criteria', () => {
     ]);
   });
 
+  it('recovers a projectivity whose frame orientations differ across sides', () => {
+    // H = [[1,0,0],[0,0,1],[0,1,0]] maps (x,y) -> (x/y, 1/y): the y = 1 row is
+    // fixed while the y = -1 row is mirrored through the line at infinity, so
+    // source and target frames never share an affine-orientation pattern. Every
+    // frame pair is still a genuine frame on both sides and all eight points
+    // are exact; the audit must succeed with zero outliers and one canonical
+    // optimal transform.
+    const rows: Correspondence[] = [
+      row('P1', { x: 0, y: 1 }, { x: 0, y: 1 }),
+      row('P2', { x: 1, y: 1 }, { x: 1, y: 1 }),
+      row('P3', { x: 2, y: 1 }, { x: 2, y: 1 }),
+      row('P4', { x: 3, y: 1 }, { x: 3, y: 1 }),
+      row('N1', { x: 10, y: -1 }, { x: -10, y: -1 }),
+      row('N2', { x: 11, y: -1 }, { x: -11, y: -1 }),
+      row('N3', { x: 12, y: -1 }, { x: -12, y: -1 }),
+      row('N4', { x: 13, y: -1 }, { x: -13, y: -1 }),
+    ];
+    const res = runAudit(rows, 0);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.outlierCount).toBe(0);
+    expect(res.inlierIds).toEqual(['P1', 'P2', 'P3', 'P4', 'N1', 'N2', 'N3', 'N4']);
+    expect(res.outlierIds).toEqual([]);
+    expect(res.distinctOptimal).toBe(1);
+    expect(res.canonical.map(String)).toEqual([
+      '1', '0', '0', '0', '0', '1', '0', '1', '0',
+    ]);
+    expect(res.framesEvaluated).toBe(36);
+  });
+
   it('counts multiple distinct optimal transforms under a genuine tie', () => {
     // Four identity-consistent points and four translation-consistent points.
     // Each transform explains exactly one group (4 inliers); no transform can

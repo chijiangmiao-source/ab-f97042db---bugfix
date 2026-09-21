@@ -110,9 +110,10 @@ docker compose run --rm verify
 echo "verify exit code: $?"
 ```
 
-`verify` 内执行 `npm run test:unit`（26 项精确判据）与 `npx playwright test`
-（5 项真实页面操作：示例批次精确矩阵与划分、SVG 证据、超上限失败保留输入清图、
-无标架失败、输入编辑后重新判定，并断言页面不访问非本站来源）。
+`verify` 内执行 `npm run test:unit`（27 项精确判据）与 `npx playwright test`
+（6 项真实页面操作：示例批次精确矩阵与划分、SVG 证据、跨无穷远镜像批次的零离群
+规范解、超上限失败保留输入清图、无标架失败、输入编辑后重新判定，并断言页面不访问
+非本站来源）。
 
 ## 目录结构
 
