@@ -62,6 +62,58 @@ test.describe('glass-plate homography audit', () => {
     expect(external).toEqual([]);
   });
 
+  test('orientation-reversing projectivity batch: zero-outlier success via real paste', async ({ page }) => {
+    await page.goto('/');
+
+    const batch = [
+      'P1, 0, 1, 0, 1',
+      'P2, 1, 1, 1, 1',
+      'P3, 2, 1, 2, 1',
+      'P4, 3, 1, 3, 1',
+      'N1, 10, -1, -10, -1',
+      'N2, 11, -1, -11, -1',
+      'N3, 12, -1, -12, -1',
+      'N4, 13, -1, -13, -1',
+    ].join('\n');
+    const allIds = ['P1', 'P2', 'P3', 'P4', 'N1', 'N2', 'N3', 'N4'];
+
+    // Real browser operations: paste, set the outlier ceiling, run the audit.
+    await page.getByTestId('input-points').fill(batch);
+    await page.getByTestId('input-limit').fill('0');
+    await page.getByTestId('btn-run').click();
+
+    await expect(page.getByTestId('notice-success')).toBeVisible();
+    await expect(page.getByTestId('notice-failure')).toHaveCount(0);
+
+    // Counts, partition and distinct optimal transforms.
+    await expect(page.getByTestId('inlier-count')).toHaveText('8');
+    await expect(page.getByTestId('outlier-count')).toHaveText('0');
+    await expect(page.getByTestId('distinct-count')).toHaveText('1');
+
+    const inChips = await page.getByTestId('inlier-list').locator('.chip').allTextContents();
+    expect(inChips).toEqual(allIds);
+    const outBox = page.getByTestId('outlier-list');
+    await expect(outBox.locator('.chip')).toHaveCount(0);
+    await expect(outBox).toContainText('无');
+
+    // Canonical nine-integer matrix: 1,0,0 / 0,0,1 / 0,1,0.
+    const expected = ['1', '0', '0', '0', '0', '1', '0', '1', '0'];
+    for (let i = 0; i < 9; i++) {
+      const cell = page.locator(`[data-testid=matrix] [data-pos="${Math.floor(i / 3)}${i % 3}"]`);
+      expect((await cell.textContent())?.trim()).toBe(expected[i]);
+    }
+
+    // Per-point table: every correspondence retained with exact coincidence.
+    for (const id of allIds) {
+      await expect(page.getByTestId(`verdict-${id}`)).toHaveText('保留·精确重合');
+    }
+
+    // SVG overlay evidence: exactly eight coincident points, no outlier marks.
+    await expect(page.locator('svg .mk-inlier')).toHaveCount(8);
+    await expect(page.locator('svg .mk-outlier')).toHaveCount(0);
+    await expect(page.locator('svg .ln-residual')).toHaveCount(0);
+  });
+
   test('ceiling exceeded: failure reason shown, input retained, old figure cleared', async ({ page }) => {
     await page.goto('/');
     await runSampleAudit(page);

@@ -160,35 +160,6 @@ const frameQuit = (p: Point[]): boolean => {
   );
 };
 
-const affineOrientationKey = (points: Point[]): string | null => {
-  const triples = [
-    [0, 1, 2],
-    [0, 1, 3],
-    [0, 2, 3],
-    [1, 2, 3],
-  ] as const;
-  const signs: number[] = [];
-  for (const [i, j, k] of triples) {
-    const a = points[i];
-    const b = points[j];
-    const c = points[k];
-    const area =
-      BigInt(b.x - a.x) * BigInt(c.y - a.y) -
-      BigInt(b.y - a.y) * BigInt(c.x - a.x);
-    if (area === 0n) return null;
-    signs.push(area < 0n ? -1 : 1);
-  }
-  const direction = signs[0];
-  return signs.map((sign) => (sign === direction ? '1' : '0')).join('');
-};
-
-const framesAreCompatible = (source: Point[], target: Point[]): boolean => {
-  const sourceKey = affineOrientationKey(source);
-  if (sourceKey === null) return false;
-  const targetKey = affineOrientationKey(target);
-  return targetKey !== null && sourceKey === targetKey;
-};
-
 /**
  * Run the exact audit.
  *
@@ -223,7 +194,6 @@ export function runAudit(rows: Correspondence[], maxOutliers: number): AuditResu
           const targetFrame = [b[i], b[j], b[k], b[l]];
           if (!frameQuit(sourceFrame)) continue;
           if (!frameQuit(targetFrame)) continue;
-          if (!framesAreCompatible(sourceFrame, targetFrame)) continue;
           const G = homographyIntFromFrames(
             sourceFrame as [Point, Point, Point, Point],
             targetFrame as [Point, Point, Point, Point],

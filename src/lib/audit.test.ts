@@ -203,6 +203,36 @@ describe('runAudit exact criteria', () => {
     expect(res.outlierIds).toEqual(['E']);
   });
 
+  it('accepts an orientation-reversing non-affine projectivity (y straddles 0) with limit 0', () => {
+    // All eight points obey the exact projectivity (x, y) -> (x/y, 1/y), whose
+    // integer canonical matrix is [[1,0,0],[0,0,1],[0,1,0]]. Its affine
+    // Jacobian determinant is -1/y^3, so orientation flips across y = 0: every
+    // frame mixes y = 1 with y = -1 and an affine-orientation filter would
+    // wrongly reject all of them.
+    const text = [
+      'P1, 0, 1, 0, 1',
+      'P2, 1, 1, 1, 1',
+      'P3, 2, 1, 2, 1',
+      'P4, 3, 1, 3, 1',
+      'N1, 10, -1, -10, -1',
+      'N2, 11, -1, -11, -1',
+      'N3, 12, -1, -12, -1',
+      'N4, 13, -1, -13, -1',
+    ].join('\n');
+    const parsed = parseCorrespondences(text);
+    expect(parsed.ok).toBe(true);
+    const res = runAudit(parsed.rows!, 0);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.outlierCount).toBe(0);
+    expect(res.outlierIds).toEqual([]);
+    expect(res.inlierIds).toEqual(['P1', 'P2', 'P3', 'P4', 'N1', 'N2', 'N3', 'N4']);
+    expect(res.distinctOptimal).toBe(1);
+    expect(res.canonical.map(String)).toEqual([
+      '1', '0', '0', '0', '0', '1', '0', '1', '0',
+    ]);
+  });
+
   it('reports W = 0 (zero-denominator) correspondences when the ceiling is exceeded', () => {
     // Same data as the test above (G = [[6,0,0],[0,6,0],[0,1,2]], seven exact
     // points, one E whose source lies on the line y = -2 mapped to infinity).
